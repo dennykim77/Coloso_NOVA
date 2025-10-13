@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coloso NOVA 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        /* AI Score Colors */
+        .score-9 { background-color: #10b981; color: white; } /* Emerald */
+        .score-8 { background-color: #f59e0b; color: white; } /* Amber */
+        .score-7 { background-color: #f97316; color: white; } /* Orange */
+        /* CRM Styling */
+        .kanban-column { min-height: 500px; background-color: #ffffff; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
+        .kanban-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .kanban-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
+        .tab-active { background-color: #4f46e5; color: white; }
+    </style>
+    <script>
+        // 글로벌 상태 관리 및 상수
+        let activeTab = 'dashboard';
+        let instructors = [];
+        const ITEMS_PER_PAGE = 10; // 페이지당 10개 리스트
+        let currentPage = 1;
+        const plannerName = "김태형 플래너"; // 기획자 이름 더미 데이터
+
+        // 아이콘 (로고) SVG 정의
+        const logoSVG = {
+            'Instagram': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-500"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`,
+            'Twitter/X': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-gray-800"><path d="M18.9 20.3c-.6 0-1.2-.2-1.8-.7-.2-.2-.5-.3-.9-.3h-.1c-1.3 0-2.6-.5-3.8-1.5-2.8-2.3-4.5-5.5-4.7-9.4H8c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5h-.1c.3-.8.6-1.6 1.1-2.4 0 0 .1-.2.4-.2.2-.1.5-.1.7.1l.6.6c.6.6 1.3 1 2.1 1.2.9.2 1.8.1 2.6-.3.1-.1.3-.1.5 0 .2.1.3.3.3.5 0 .2 0 .4-.1.6-1.5 3.3-1.6 7.1-.1 10.3 1.3 2.9 3.5 4.8 6 5.8 0 0 .1 0 .2 0 .6 0 1-.5 1-1.1s-.5-1.1-1.1-1.1c-.8 0-1.5-.4-2.1-1.1-.3-.4-.7-.7-1.2-.9-.4-.1-.8-.2-1.2-.2-.5 0-1 .1-1.4.3-.7.4-1.2 1-1.5 1.7-.1.2-.3.4-.6.4z"/></svg>`,
+            'Behance': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M14.92 12c-2.7 0-4.9-2.2-4.9-4.9S12.22 2.2 14.92 2.2h4.9s.7 1.7.7 2.7V12h-5.6zm.5-7.8c1.7 0 3.2 1.4 3.2 3.2s-1.5 3.2-3.2 3.2h-3.2c1.7 0 3.2-1.4 3.2-3.2s-1.5-3.2-3.2-3.2h3.2zM21 17.5c0 2.5-2 4.5-4.5 4.5H3V12h13.5c2.5 0 4.5 2 4.5 4.5zM3 17.5h13.5c1.7 0 3.2-1.4 3.2-3.2s-1.5-3.2-3.2-3.2H3v6.4z"></path></svg>`
+        };
+        const gmailIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
+
+
+        const funnelStages = {
+            'Qualified': '적격 후보 (AI 발굴)',
+            'Initial Contact Sent': '초기 컨택 완료',
+            'In Communication': '협의 진행 중',
+            'Contract': '계약 단계'
+        };
+
+        // 시연용 초기 더미 데이터 (총 12개로 확장)
+        const initialInstructors = [
+            { id: 101, name: "ArtValkyrie", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/artvalkyrie", followers: "125K", engagement: "15%", aiScore: 9.3, style: "사이버펑크 디자인", trend: "태국 시장", comment: "퀄리티 최상, 콜로소 중복 낮음.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "artvalkyrie@gmail.com" },
+            { id: 102, name: "PixelSmith", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/pixelsmith", followers: "45K", engagement: "22%", aiScore: 8.7, style: "레트로 픽셀 아트", trend: "글로벌 수요", comment: "팬덤 강력, 커리큘럼 논의 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "pixelsmith" },
+            { id: 103, name: "DigitalMonk", platform: "Behance", stage: "Qualified", url: "https://behance.net/digitalmonk", followers: "80K", engagement: "7%", aiScore: 9.0, style: "동양화 일러스트", trend: "일본 시장", comment: "독보적 스타일, 잠재 고객 층 확실.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "digitalmonk@gmail.com" },
+            { id: 104, name: "ConceptDreamer", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/conceptdreamer", followers: "110K", engagement: "14%", aiScore: 8.8, style: "컨셉 아트", trend: "대규모 프로젝트", comment: "긍정적 회신, 미팅 시간 조율 중.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "conceptdreamer" },
+            { id: 105, name: "VibeSketch", platform: "Behance", stage: "Qualified", url: "https://behance.net/vibesketch", followers: "30K", engagement: "10%", aiScore: 7.9, style: "패션 스케치", trend: "정체 중", comment: "니치 마켓, 성장률 체크 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "vibesketch@gmail.com" },
+            { id: 106, name: "VoxelGenius", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/voxelgenius", followers: "55K", engagement: "19%", aiScore: 8.5, style: "복셀 3D 모델링", trend: "메타버스 인기", comment: "새로운 분야의 선구자, 시장 테스트 적합.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "voxelgenius@gmail.com" },
+            { id: 107, name: "LineAnimator", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/lineanimator", followers: "95K", engagement: "16%", aiScore: 9.1, style: "2D 라인 애니메이션", trend: "바이럴 가능성 높음", comment: "단순하지만 매력적인 콘텐츠.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "lineanimator" },
+            { id: 108, name: "Photorealist", platform: "Behance", stage: "Qualified", url: "https://behance.net/photorealist", followers: "130K", engagement: "5%", aiScore: 8.2, style: "극사실주의 페인팅", trend: "고급 스킬 시장", comment: "압도적인 기술력, 강의 난이도 조절 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "photorealist@gmail.com" },
+            { id: 109, name: "CreativeCoder", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/creativecoder", followers: "40K", engagement: "17%", aiScore: 7.8, style: "프로그래밍 아트", trend: "신기술 결합", comment: "새로운 시도, 기술적 검증 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "creativecoder@gmail.com" },
+            { id: 110, name: "CharcoalMaster", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/charcoalmaster", followers: "65K", engagement: "11%", aiScore: 8.4, style: "전통 숯 드로잉", trend: "클래식 아트", comment: "안정적인 수요층 확보.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "charcoalmaster" },
+            
+            { id: 201, name: "NeonSculptor", platform: "Instagram", stage: "Initial Contact Sent", url: "https://instagram.com/neonsculptor", followers: "180K", engagement: "12%", aiScore: 9.5, style: "네온 3D 모델링", trend: "미국 트렌드", comment: "최고 점수, 즉시 컨택 필요.", selected: false, lastContact: { date: "2025-10-01", medium: "Gmail", planner: plannerName, isReplied: false, content: "안녕하세요, NeonSculptor님. 저희 Coloso는 연사님의 네온 3D 모델링 작품에 큰 감명을 받았습니다. 강의 제안서 첨부합니다." }, lastResponse: null, contactTarget: "neonsculptor@gmail.com" },
+            { id: 202, name: "InkFlow", platform: "Twitter/X", stage: "Initial Contact Sent", url: "https://x.com/inkflow", followers: "60K", engagement: "18%", aiScore: 8.5, style: "카툰 드로잉", trend: "높은 호환성", comment: "대중적 스타일, 접근성 좋음.", selected: false, lastContact: { date: "2025-10-05", medium: "Instagram DM", planner: plannerName, isReplied: false, content: "안녕하세요! 저희는 InkFlow님의 카툰 드로잉 강의를 제안드립니다. 확인 부탁드려요." }, lastResponse: null, contactTarget: "inkflow" },
+            
+            { 
+                id: 301, name: "MotionWizard", platform: "Instagram", stage: "In Communication", url: "https://instagram.com/motionwizard", followers: "200K", engagement: "10%", aiScore: 9.1, style: "모션 그래픽", trend: "높은 검색량", comment: "콜로소 강의 제안 수락.", selected: false, 
+                lastContact: { date: "2025-09-20", medium: "Gmail", planner: plannerName, isReplied: true, content: "제안서 발송 (초기 제안)" },
+                lastResponse: { medium: "Instagram DM", date: "2025-09-23", summary: "주제 조정 요청: '기초 모션' 대신 '고급 이펙트'로 진행 희망.", fullContent: "DM 내용: 제안 감사드립니다! 기초 과정은 이미 많은 채널에서 다루고 있어, 저는 고급 테크닉(파티클/시뮬레이션) 위주로 진행하고 싶습니다. 내부 검토 부탁드려요.", followUpDays: 20, todo: "강의 주제 '고급 이펙트'로 조정 및 커리큘럼 초안 재전달." }, contactTarget: "motionwizard"
+            },
+            { 
+                id: 302, name: "WebFlowMaster", platform: "Behance", stage: "In Communication", url: "https://behance.net/webflowmaster", followers: "50K", engagement: "8%", aiScore: 8.0, style: "웹 디자인/UX", trend: "실무 수요", comment: "모든 조건 합의 완료.", selected: false, 
+                lastContact: { date: "2025-09-25", medium: "Gmail", planner: plannerName, isReplied: true, content: "강의료 재조정 요청" },
+                lastResponse: { medium: "Gmail", date: "2025-10-01", summary: "강의료 협상 요청 (기존 제안 대비 15% 인상 희망).", fullContent: "메일 내용: 제안서 잘 받았습니다. 강의 주제는 마음에 듭니다. 다만, 이 정도 규모의 강의라면 강의료를 15% 인상하는 것을 고려해주시면 좋겠습니다. 회신 기다리겠습니다.", followUpDays: 12, todo: "강의료 조정 재무팀과 협의 및 재제안." }, contactTarget: "webflowmaster@gmail.com"
+            },
+            
+            { id: 401, name: "GameArtist", platform: "Instagram", stage: "Contract", url: "https://instagram.com/gameartist", followers: "150K", engagement: "13%", aiScore: 9.6, style: "게임 원화", trend: "최대 인기", comment: "최종 계약서 서명 대기.", selected: false, lastContact: { date: "2025-10-08", medium: "Gmail", planner: plannerName, isReplied: false, content: "계약 조건 최종 합의" }, lastResponse: null, contractDraft: "GameArtist 강의 제작 계약서\n\n1. 강의명: [최신 트렌드 게임 원화]\n2. 연사: GameArtist\n3. 강의료: 50,000,000원 (최종 협의)\n4. 계약일: 2025년 10월 13일\n\n[이하 상세 조항 생략]", contactTarget: "gameartist@gmail.com" },
+        ];
+        
+        // 초기화
+        instructors = [...initialInstructors];
+
+        // 탭 변경
+        function setTab(tabName) {
+            activeTab = tabName;
+            currentPage = 1; // 탭 변경 시 페이지 초기화
+            renderApp();
+        }
+
+        // --- 공통 유틸리티 함수 ---
+
+        // 모달 표시 (alert 대체)
+        function showModal(title, message, isSuccess = false) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerHTML = message;
+            
+            const icon = document.getElementById('modal-icon');
+            icon.innerHTML = isSuccess 
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>` 
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>`;
+            
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+            // '협의 진행 중' 탭에서 회신 후 모달 닫을 때 CRM 대시보드를 리로드하여 업데이트 반영
+            if (activeTab === 'crm') {
+                 renderContactManagement();
+            }
+        }
+
+        // PDF 다운로드 시뮬레이션
+        function downloadPdf(filename) {
+            const contractContent = document.getElementById('contract-editor').value;
+            // PDF 파일 내용을 생성 (실제 PDF 생성은 아님)
+            const pdfContent = `Coloso 강의 계약서\n\n${contractContent}`;
+            const blob = new Blob([pdfContent], { type: 'application/pdf' });
+            
+            // 다운로드 링크 생성 및 클릭
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            showModal('다운로드 완료!', `<strong>${filename}</strong> 파일을 PDF 형식으로 다운로드했습니다.`, true);
+        }
+        
+        // 전송 확인 모달 (1단계: 전송하시겠습니까?)
+        function confirmSendTemplate(id) {
+            const contentInput = document.getElementById('contact-content');
+            if (!contentInput || !contentInput.value.trim()) {
+                showModal('알림', '메일 내용을 입력해주세요.');
+                return;
+            }
+
+            // 모달 초기화
+            document.getElementById('modal-body').innerHTML = `<p class="text-md font-semibold">선택된 연사에게 컨택 메시지를 전송하시겠습니까?</p><p class="text-sm text-gray-500 mt-2">전송 후 'Creator Contact Management'에서 현황 관리가 가능합니다.</p>`;
+            document.getElementById('modal-title').innerText = '전송 확인';
+
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML += `<div class="mt-4 flex justify-end space-x-2"><button onclick="closeModal(); sendTemplateConfirmed(${id});" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">네</button><button onclick="closeModal()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition">아니오</button></div>`;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        // 전송 완료 모달 (2단계: 전송 완료되었습니다)
+        function sendTemplateConfirmed(id) {
+            const selectedInstructor = instructors.find(inst => inst.id === id);
+            
+            // 상태 업데이트: 스테이지 변경
+            instructors = instructors.map(inst => 
+                inst.id === id ? { ...inst, stage: 'Initial Contact Sent', selected: false, 
+                    lastContact: { 
+                        date: new Date().toISOString().slice(0, 10), 
+                        medium: document.getElementById('contact-channel').value, 
+                        planner: plannerName, 
+                        isReplied: false, 
+                        content: document.getElementById('contact-content').value 
+                    } 
+                } : { ...inst, selected: false } // 모든 선택 해제
+            );
+
+            showModal('전송 완료!', `
+                <p class="text-xl font-bold text-green-600 mb-2">✅ 성공적으로 전송되었습니다!</p>
+                <p class="text-md text-gray-700">${selectedInstructor.name}님에게 컨택 메시지가 발송되었습니다.</p>
+                <p class="text-sm text-gray-500 mt-2">현황은 'Creator Contact Management'에서 '초기 컨택 완료' 스테이지로 이동하여 관리하실 수 있습니다.</p>
+            `, true);
+            
+            // 완료 후 템플릿 영역 초기화 및 대시보드 리로드
+            renderCreatorDashboard();
+        }
+
+        // --- Tab 1: Creator Dashboard (연사 발굴) 기능 ---
+
+        // 연사 선택/해제
+        function toggleSelection(id) {
+            instructors = instructors.map(inst => 
+                inst.id === id ? { ...inst, selected: !inst.selected } : { ...inst, selected: false } // 단일 선택 강제
+            );
+            renderCreatorDashboard();
+        }
+
+        // 연사 삭제
+        function deleteInstructor(id, name) {
+            if (confirm(`정말로 ${name} 연사 후보를 목록에서 삭제하시겠습니까?`)) {
+                instructors = instructors.filter(inst => inst.id !== id);
+                renderCreatorDashboard();
+            }
+        }
+
+        // 새 연사 추가 시뮬레이션
+        function addManualInstructor() {
+            const platform = document.getElementById('manual-platform').value;
+            const creatorId = document.getElementById('manual-id').value.trim();
+
+            if (!creatorId) {
+                showModal('입력 오류', 'Creator ID 또는 URL을 입력해주세요.');
+                return;
+            }
+
+            // 중복 검사
+            if (instructors.some(inst => inst.name === creatorId)) {
+                showModal('중복 오류', `${creatorId}님은 이미 목록에 존재합니다.`);
+                document.getElementById('manual-id').value = '';
+                return;
+            }
+
+            const newId = Date.now();
+            const newInstructor = {
+                id: newId,
+                name: creatorId,
+                platform: platform,
+                stage: "Qualified",
+                url: platform === 'Instagram' ? `https://instagram.com/${creatorId}` : platform === 'Twitter/X' ? `https://x.com/${creatorId}` : `https://behance.net/${creatorId}`,
+                followers: "N/A", engagement: "N/A", aiScore: 'Loading',
+                style: "AI 분석 중...", trend: "AI 분석 중...", 
+                comment: `<div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-2 bg-indigo-500 animate-[pulse_1s_infinite]"></div></div> AI가 소셜 데이터 수집 및 멀티모달 분석을 진행하고 있습니다. (3초 소요)`,
+                selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: platform === 'Instagram' || platform === 'Twitter/X' ? creatorId : `${creatorId.toLowerCase().replace(/\s/g, '')}@gmail.com`
+            };
+
+            instructors.unshift(newInstructor);
+            setPage(1); // 새 항목 추가 시 1페이지로 이동
+            renderCreatorDashboard();
+
+            // 3초 후 AI 분석 완료 시뮬레이션
+            setTimeout(() => {
+                instructors = instructors.map(inst => {
+                    if (inst.id === newId) {
+                        return { 
+                            ...inst, 
+                            aiScore: 8.9, 
+                            followers: "75K", engagement: "11%",
+                            style: "미니멀리즘 웹툰", trend: "한국 시장 신흥 트렌드", 
+                            comment: "수동 추가된 연사. AI 스코어링 완료. 즉시 컨택 추천." 
+                        };
+                    }
+                    return inst;
+                });
+                renderCreatorDashboard();
+            }, 3000);
+
+            document.getElementById('manual-id').value = '';
+        }
+        
+        // 템플릿 생성 및 에디터 로드
+        function generateTemplateContent(isReply = false, replyInstId = null) {
+            const selectedInstructor = isReply 
+                ? instructors.find(inst => inst.id === replyInstId)
+                : instructors.find(inst => inst.selected);
+
+            if (!selectedInstructor) return;
+
+            // LLM 시뮬레이션: 데이터 기반으로 템플릿 채우기
+            const subjectPrefix = isReply ? "Re: " : "";
+            const subjectContent = isReply ? `강의료 조정 재제안 - ${selectedInstructor.name}님` : `${selectedInstructor.style.split(' ')[0]} 강의 제안`;
+            const subject = subjectPrefix + subjectContent;
+            
+            let content = '';
+            
+            if (isReply) {
+                // 회신 내용 생성 시뮬레이션
+                content = `안녕하세요, ${selectedInstructor.name}님.
+
+저희 내부 검토 결과, 요청하신 강의료 인상(15%)에 대해 일부 조정된 조건으로 재제안 드립니다.
+(AI 기반 최적 협상 조건 도출)
+기존 제안 대비 10% 인상된 [XX,XXX,XXX원]을 최종 제안하며, 대신 강의 런칭 후 6개월간의 프로모션 진행에 협조를 부탁드립니다.
+
+[AI 요약: 이전 응답: ${selectedInstructor.lastResponse.summary}]
+빠른 회신 기다리겠습니다.
+
+감사합니다.
+- ${plannerName} 드림`;
+            } else {
+                // 초기 컨택 내용 생성 시뮬레이션
+                content = `안녕하세요, ${selectedInstructor.name}님.
+
+저는 글로벌 온라인 교육 플랫폼 Coloso의 콘텐츠 기획 담당자 ${plannerName}입니다.
+
+최근 저희 NOVA AI 시스템이 연사님의 [${selectedInstructor.style}] 작업물에 주목했습니다. (AI 스코어: ${selectedInstructor.aiScore}점) 
+연사님의 작품이 [${selectedInstructor.trend}] 트렌드에 부합하며, Coloso와 함께하면 폭발적인 반응을 얻을 수 있을 것이라 확신합니다.
+
+저희는 연사님의 전문 분야인 [${selectedInstructor.style}]에 대한 온라인 강의 기획을 제안드립니다. 자세한 내용은 회신 주시면 논의 드리고 싶습니다.
+
+감사합니다.
+- ${plannerName} 드림`;
+            }
+
+            const containerId = isReply ? 'reply-content' : 'template-content';
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="space-y-4 p-4 bg-white rounded-lg border">
+                    <label class="block">
+                        <span class="text-sm font-medium text-gray-700">수신 채널 (API 연동)</span>
+                        <select id="contact-channel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                            <option value="Gmail">Gmail (메일 API)</option>
+                            <option value="Instagram DM">Instagram DM (SNS API)</option>
+                            <option value="X Message">X Message (SNS API)</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-gray-700">수신자 ID/주소</span>
+                        <input type="text" id="contact-target-input" value="${selectedInstructor.contactTarget}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border bg-gray-50">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-gray-700">제목 (LLM 자동 생성 & 수정 가능)</span>
+                        <input type="text" id="contact-subject" value="${subject}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-gray-700">내용 (LLM 자동 생성 & 수정 가능)</span>
+                        <textarea id="contact-content" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">${content}</textarea>
+                    </label>
+                    ${isReply ? `<button onclick="confirmSendReply(${selectedInstructor.id})" class="mt-3 w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition">회신 전송</button>` : `<button onclick="confirmSendTemplate(${selectedInstructor.id})" class="mt-3 w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition">전송</button>`}
+                </div>
+            `;
+        }
+
+        // 회신 전송 확인 모달
+        function confirmSendReply(id) {
+            if (!document.getElementById('contact-content') || !document.getElementById('contact-content').value.trim()) {
+                showModal('알림', '회신 내용을 입력해주세요.');
+                return;
+            }
+
+            document.getElementById('modal-body').innerHTML = `<p class="text-md font-semibold">AI 기반으로 생성된 회신 내용을 전송하시겠습니까?</p>`;
+            document.getElementById('modal-title').innerText = '회신 전송 확인';
+
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML += `<div class="mt-4 flex justify-end space-x-2"><button onclick="closeModal(); sendReplyConfirmed(${id});" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">네</button><button onclick="closeModal()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition">아니오</button></div>`;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        // 회신 전송 실행 후 완료 모달
+        function sendReplyConfirmed(id) {
+            const selectedInstructor = instructors.find(inst => inst.id === id);
+            
+            // 상태 업데이트: In Communication 상태 유지 (시연용)
+            // 실제 구현에서는 lastContact/lastResponse 필드를 업데이트해야 함
+            showModal('회신 전송 완료!', `
+                <p class="text-xl font-bold text-green-600 mb-2">✅ 회신이 성공적으로 전송되었습니다!</p>
+                <p class="text-md text-gray-700">${selectedInstructor.name}님에게 협의 내용이 전달되었습니다.</p>
+                <p class="text-sm text-gray-500 mt-2">다음 회신을 기다리며 To-Do를 업데이트해주세요.</p>
+            `, true);
+        }
+
+        // 계약서 발송 시뮬레이션
+        function sendContractEmail(name) {
+            const contractContent = document.getElementById('contract-editor').value;
+            const emailAddress = prompt(`최종 계약서를 수신할 이메일 주소를 입력해주세요 (예: ${name.toLowerCase().replace(/\s/g, '')}@gmail.com):`);
+            
+            if (emailAddress) {
+                showModal('최종 계약서 발송 시뮬레이션', `
+                    <p class="text-md font-semibold">Gmail API 연동 발송</p>
+                    <div class="p-4 bg-gray-50 rounded-lg text-sm space-y-1 mt-3">
+                        <p><strong>수신:</strong> ${emailAddress}</p>
+                        <p><strong>제목:</strong> [Coloso] ${name}님 - 최종 강의 제작 계약서 건</p>
+                        <p><strong>첨부파일:</strong> ${name}_계약서_최종본.pdf (계약서 초안 내용 기반)</p>
+                    </div>
+                    <p class="text-green-600 font-bold mt-3">✅ Gmail API를 통해 계약서 첨부 및 발송이 완료되었습니다.</p>
+                `, true);
+            }
+        }
+
+
+        // --- 페이징 및 렌더링 ---
+        function setPage(page) {
+            currentPage = page;
+            if (activeTab === 'dashboard') {
+                renderCreatorDashboard();
+            } else if (activeTab === 'crm') {
+                renderContactManagement();
+            }
+        }
+
+        function renderPagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+            if (totalPages <= 1) return '';
+
+            let pages = [];
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(`
+                    <button onclick="setPage(${i})" class="px-4 py-2 text-sm font-medium rounded-lg ${currentPage === i ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border hover:bg-gray-100'}">
+                        ${i}
+                    </button>
+                `);
+            }
+            return `<div class="flex justify-center mt-6 space-x-2">${pages.join('')}</div>`;
+        }
+
+        // 탭 1 렌더링
+        function renderCreatorDashboard() {
+            const container = document.getElementById('main-content');
+            const selectedInstructor = instructors.find(inst => inst.selected);
+            const qualifiedInstructors = instructors.filter(inst => inst.stage === 'Qualified' || inst.aiScore === 'Loading');
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const paginatedInstructors = qualifiedInstructors.slice(startIndex, endIndex);
+
+            const listHTML = paginatedInstructors.map(inst => {
+                const scoreColor = inst.aiScore >= 9.0 ? 'score-9' : inst.aiScore >= 8.0 ? 'score-8' : inst.aiScore === 'Loading' ? 'bg-gray-300' : 'score-7';
+                const scoreDisplay = inst.aiScore === 'Loading' ? `<div class="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>` : inst.aiScore.toFixed(1);
+                const isSelected = selectedInstructor && selectedInstructor.id === inst.id;
+
+                return `
+                    <div class="nova-card p-4 bg-white rounded-xl shadow-md flex items-start space-x-4 mb-4 border-l-4 ${isSelected ? 'border-purple-600 ring-2 ring-purple-300' : 'border-indigo-500'} transition duration-300 hover:shadow-lg">
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-start">
+                                <div class="w-full">
+                                    <div class="flex items-center space-x-2">
+                                        ${logoSVG[inst.platform]}
+                                        <a href="${inst.url}" target="_blank" class="text-xl font-bold text-gray-800 hover:text-indigo-600">${inst.name}</a>
+                                        <span class="text-sm font-normal text-gray-500">(${inst.platform})</span>
+                                    </div>
+                                    <div class="mt-1 flex items-center space-x-2 text-sm text-gray-500">
+                                        <span>팔로워: ${inst.followers}</span>
+                                        <span class="text-indigo-500">•</span>
+                                        <span>참여율: ${inst.engagement}</span>
+                                    </div>
+                                </div>
+                                <div class="text-right flex-shrink-0">
+                                    <div class="font-extrabold text-2xl px-3 py-1 rounded-full flex items-center justify-center h-10 w-16 ${scoreColor}">
+                                        ${scoreDisplay}
+                                    </div>
+                                    <p class="text-xs font-semibold text-gray-600 mt-1">AI 스코어</p>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <p class="text-sm font-semibold text-indigo-700">AI 분석 (멀티모달 LLM)</p>
+                                <p class="text-sm text-gray-700 mt-1">
+                                    <strong>스타일:</strong> ${inst.style} <span class="text-gray-400">|</span> 
+                                    <strong>트렌드:</strong> ${inst.trend}
+                                </p>
+                                <p class="text-xs text-gray-600 italic mt-1">${inst.comment}</p>
+                            </div>
+                            <div class="mt-3 flex justify-end space-x-2">
+                                <button onclick="deleteInstructor(${inst.id}, '${inst.name}')" class="text-sm text-red-500 hover:text-red-700">삭제</button>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelection(${inst.id})" class="form-checkbox h-5 w-5 text-indigo-600 rounded-lg border-gray-300 focus:ring-indigo-500">
+                                <span class="ml-2 text-sm font-medium text-gray-700">컨택 대상</span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const paginationHTML = renderPagination(qualifiedInstructors.length);
+
+            const templateHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
+                    <div class="lg:col-span-2 space-y-4">
+                        <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">AI 기반 연사 스크리닝 결과 (${qualifiedInstructors.length}명)</h2>
+                        <!-- 수동 추가 기능 -->
+                        <div class="p-4 bg-indigo-50 rounded-xl flex items-center space-x-4 shadow-md">
+                            <h3 class="font-bold text-indigo-800 flex-shrink-0">수동 연사 추가</h3>
+                            <select id="manual-platform" class="rounded-md border-gray-300 p-2 text-sm border">
+                                <option value="Instagram">Instagram ID</option>
+                                <option value="Twitter/X">X ID</option>
+                                <option value="Behance">Behance URL</option>
+                            </select>
+                            <input type="text" id="manual-id" placeholder="ID/URL 입력" class="flex-grow rounded-md border-gray-300 p-2 text-sm border">
+                            <button onclick="addManualInstructor()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex-shrink-0">AI 분석 요청</button>
+                        </div>
+
+                        <!-- 연사 리스트 -->
+                        <div id="instructor-list" class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                            ${listHTML}
+                            ${paginationHTML}
+                        </div>
+                    </div>
+
+                    <!-- 컨택 템플릿 영역 -->
+                    <div class="lg:col-span-1">
+                        <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">LLM 기반 컨택 템플릿</h2>
+                        <div class="p-4 bg-white rounded-xl shadow-lg mt-4 space-y-4">
+                            <div class="p-3 border rounded-lg bg-gray-50">
+                                <p class="font-bold text-md text-indigo-700">선택 연사: ${selectedInstructor ? selectedInstructor.name : '없음'}</p>
+                                <p class="text-xs text-gray-500">${selectedInstructor ? selectedInstructor.style : '좌측 목록에서 컨택 대상을 선택해주세요.'}</p>
+                            </div>
+                            
+                            <button onclick="generateTemplateContent()" id="generate-template-btn" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg shadow-md hover:bg-purple-700 transition ${selectedInstructor ? '' : 'opacity-50 pointer-events-none'}">
+                                🚀 맞춤형 템플릿 초안 생성 (Gemini LLM)
+                            </button>
+                            
+                            <div id="template-output" class="space-y-4">
+                                <!-- Template Editor/Preview -->
+                                <div id="template-content">
+                                    ${selectedInstructor ? '<p class="text-center text-gray-500">템플릿 생성 버튼을 눌러주세요.</p>' : '<p class="text-center text-gray-500">선택된 연사가 없습니다.</p>'}
+                                </div>
+                            </div>
+                            
+                            <!-- 중복 버튼 제거 및 단일 '전송' 버튼 유지 -->
+                            <button id="send-template-btn" onclick="confirmSendTemplate(${selectedInstructor ? selectedInstructor.id : 'null'})" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-green-700 transition ${selectedInstructor ? '' : 'opacity-50 pointer-events-none'}" ${selectedInstructor ? '' : 'disabled'}>
+                                전송
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = templateHTML;
+        }
+
+        // CRM 카드 렌더링
+        function renderKanbanCard(inst) {
+            const mediumIcon = inst.platform === 'Instagram' ? logoSVG['Instagram'] : inst.platform === 'Twitter/X' ? logoSVG['Twitter/X'] : logoSVG['Behance'];
+            const lastContactMediumIcon = inst.lastResponse ? (inst.lastResponse.medium.includes('Instagram') ? logoSVG['Instagram'] : inst.lastResponse.medium.includes('X') ? logoSVG['Twitter/X'] : gmailIcon) : '';
+
+            let additionalContent = '';
+            let cardClass = "bg-white p-4 rounded-xl shadow-md mb-4 kanban-card cursor-pointer";
+
+            if (inst.stage === 'In Communication' && inst.lastResponse) {
+                const isUrgent = inst.lastResponse.followUpDays > 10;
+                const followUpColor = isUrgent ? 'text-red-500 font-bold' : 'text-yellow-600';
+                additionalContent = `
+                    <div class="mt-2 pt-2 border-t border-gray-100 space-y-2">
+                        <div class="flex items-center text-xs text-gray-600">
+                            ${lastContactMediumIcon}
+                            <span class="ml-1 font-semibold">${inst.lastResponse.medium} 응답 (D+${inst.lastResponse.followUpDays}일 경과)</span>
+                        </div>
+                        <p class="text-sm font-medium text-gray-800">${inst.lastResponse.summary}</p>
+                        <p class="text-xs ${followUpColor}">🚨 후속 액션 필요: ${inst.lastResponse.todo.split(' ')[0]}...</p>
+                    </div>
+                `;
+                cardClass += isUrgent ? " border-l-4 border-red-500" : " border-l-4 border-yellow-500";
+            } else if (inst.stage === 'Contract') {
+                additionalContent = `
+                    <div class="mt-2 pt-2 border-t border-gray-100">
+                        <p class="text-sm font-bold text-green-600">계약서 초안 준비 완료</p>
+                        <p class="text-xs text-gray-500">최종 검토 및 발송 대기 중</p>
+                    </div>
+                `;
+                cardClass += " border-l-4 border-green-500";
+            }
+            
+            return `
+                <div class="${cardClass}" onclick="instDetails(${inst.id}, '${inst.stage}')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            ${mediumIcon}
+                            <p class="text-lg font-bold text-gray-800">${inst.name}</p>
+                        </div>
+                        <span class="text-xs font-bold ${inst.aiScore >= 9.0 ? 'score-9' : inst.aiScore >= 8.0 ? 'score-8' : 'score-7'} px-2 py-0.5 rounded">${inst.aiScore.toFixed(1)}</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">${inst.style}</p>
+                    ${additionalContent}
+                </div>
+            `;
+        }
+
+        // 탭 2 렌더링
+        function renderContactManagement() {
+            const container = document.getElementById('main-content');
+            
+            // 1. Qualified 항목 필터링 및 페이징
+            const allQualifiedInstructors = instructors.filter(inst => inst.stage === 'Qualified' && inst.aiScore !== 'Loading');
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const paginatedQualified = allQualifiedInstructors.slice(startIndex, endIndex);
+
+            const kanbanHTML = Object.keys(funnelStages).map(stageKey => {
+                const stageName = funnelStages[stageKey];
+                
+                let stageInstructors;
+                let columnContent;
+                let itemCount;
+
+                if (stageKey === 'Qualified') {
+                    stageInstructors = paginatedQualified;
+                    itemCount = allQualifiedInstructors.length;
+                    
+                    // Qualified는 SNS 페이지 이동 기능이 주가 되도록 설정
+                    const qualifiedCards = stageInstructors.map(inst => `
+                        <div class="kanban-card bg-white p-4 rounded-xl shadow-md mb-4 cursor-pointer border-l-4 border-indigo-500" onclick="openInstructorPage(${inst.id})">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    ${logoSVG[inst.platform]}
+                                    <p class="text-lg font-bold text-gray-800">${inst.name}</p>
+                                </div>
+                                <span class="text-xs font-bold ${inst.aiScore >= 9.0 ? 'score-9' : 'score-8'} px-2 py-0.5 rounded">${inst.aiScore.toFixed(1)}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">${inst.style}</p>
+                            <p class="text-xs text-indigo-600 mt-2">클릭 시 SNS 페이지로 이동</p>
+                        </div>
+                    `).join('');
+                    
+                    columnContent = qualifiedCards + renderPagination(itemCount);
+                } else {
+                    stageInstructors = instructors.filter(inst => inst.stage === stageKey && inst.aiScore !== 'Loading');
+                    itemCount = stageInstructors.length;
+                    columnContent = stageInstructors.map(inst => renderKanbanCard(inst)).join('');
+                }
+
+                
+                let contractSection = '';
+                if (stageKey === 'Contract') {
+                    contractSection = `
+                        <div class="mt-4 p-4 bg-indigo-50 rounded-lg">
+                            <h4 class="font-bold text-indigo-800">계약서 관리 (Step 6)</h4>
+                            <p class="text-sm text-gray-600 mb-2">카드 클릭 시 계약서 초안 편집 및 발송</p>
+                            <button onclick="instDetails(${stageInstructors[0].id}, 'Contract')" class="w-full bg-indigo-500 text-white text-sm py-1.5 rounded-md hover:bg-indigo-600 transition" ${stageInstructors.length > 0 ? '' : 'disabled'}>
+                                계약 관리 바로가기
+                            </button>
+                        </div>
+                    `;
+                }
+
+
+                return `
+                    <div class="w-full lg:w-1/4 kanban-column p-4">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">${stageName} <span class="text-gray-500 text-sm">(${itemCount})</span></h3>
+                        <div class="space-y-4">
+                            ${columnContent}
+                        </div>
+                        ${contractSection}
+                    </div>
+                `;
+            }).join('');
+
+            const contentHTML = `
+                <div class="p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Creator Contact Management (CRM Funnel)</h2>
+                    <div class="flex flex-wrap lg:flex-nowrap gap-6">
+                        ${kanbanHTML}
+                    </div>
+                </div>
+            `;
+            container.innerHTML = contentHTML;
+        }
+        
+        // 적격 후보 리스트 클릭 시 해당 연사 SNS 페이지 새 탭으로 열기
+        function openInstructorPage(id) {
+            const inst = instructors.find(i => i.id === id);
+            if (inst && inst.url) {
+                window.open(inst.url, '_blank');
+            }
+        }
+
+        // CRM 상세 모달 표시
+        function instDetails(id, stage) {
+            const inst = instructors.find(i => i.id === id);
+            let title = `${inst.name} (${funnelStages[stage]})`;
+            let content = '';
+
+            if (stage === 'Qualified') {
+                 // Qualified는 SNS 연결 기능이 주가 되므로, 여기서 openInstructorPage를 다시 호출하여 UX 통일성을 제공
+                 openInstructorPage(id);
+                 showModal('페이지 이동 안내', `<p class="text-md font-semibold">${inst.name}님의 ${inst.platform} 페이지를 새 탭으로 열었습니다.</p><p class="text-sm text-gray-500 mt-2">AI 분석 상세 정보를 직접 확인해보세요.`, false);
+                 return; 
+            } else if (stage === 'Initial Contact Sent' && inst.lastContact) {
+                // 초기 컨택 완료 상세
+                content = `
+                    <div class="space-y-4">
+                        <p class="text-lg font-bold text-gray-800 border-b pb-2">컨택 발송 이력</p>
+                        <div class="p-4 bg-indigo-50 rounded-lg space-y-2">
+                            <p class="text-sm font-semibold text-indigo-800 flex items-center">${inst.lastContact.medium.includes('Gmail') ? gmailIcon : inst.platform === 'Instagram' ? logoSVG['Instagram'] : logoSVG['Twitter/X']} <span class="ml-2">${inst.lastContact.medium}</span> 발송</p>
+                            <p class="text-xs text-gray-600">발송 일자: ${inst.lastContact.date} | 발송 담당: ${inst.lastContact.planner}</p>
+                            <p class="text-md font-medium text-gray-700 mt-2">${inst.lastContact.content.split('\n')[0].substring(0, 50)}...</p>
+                            <button class="text-indigo-600 text-sm font-semibold hover:text-indigo-800 mt-1" onclick="showModal('발송 원본', '<textarea readonly class=\\'w-full h-80 p-2 border rounded-lg text-sm\\'>${inst.lastContact.content.replace(/'/g, '&#39;').replace(/"/g, '&quot;')}</textarea>', false)">원본 내용 확인</button>
+                        </div>
+                        <p class="text-red-500 font-bold">⚠️ 회신 대기 중 (D+${(new Date() - new Date(inst.lastContact.date)) / (1000 * 3600 * 24) | 0}일 경과)</p>
+                    </div>
+                `;
+            } else if (stage === 'In Communication' && inst.lastResponse) {
+                // 협의 진행 중 상세 (회신 및 회신 옵션)
+                const url = inst.platform === 'Instagram' ? `https://instagram.com/${inst.name}` : inst.platform === 'Twitter/X' ? `https://x.com/${inst.name}` : inst.url; 
+
+                content = `
+                    <div class="space-y-4">
+                        <p class="text-lg font-bold text-gray-800 border-b pb-2">최신 응답 및 AI To-Do</p>
+                        <div class="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-500 space-y-2">
+                            <p class="text-md font-bold text-yellow-800 flex items-center">${inst.lastResponse.medium} 응답 (D+${inst.lastResponse.followUpDays}일 경과)</p>
+                            <p class="text-sm font-medium text-gray-700">${inst.lastResponse.summary}</p>
+                            <p class="text-xs text-red-500 font-bold">AI To-Do: ${inst.lastResponse.todo}</p>
+                            <a href="${url}" target="_blank" class="text-indigo-600 text-sm font-semibold hover:text-indigo-800 mt-1 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13l2-2 2 2"></path><path d="M12 2v10"></path><path d="M22 10V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v4"></path></svg>
+                                응답 매체로 이동 (새 탭)
+                            </a>
+                        </div>
+                        
+                        <div class="p-4 bg-white rounded-lg shadow">
+                            <h3 class="font-bold text-indigo-700 mb-2">💡 LLM 기반 회신 옵션</h3>
+                            <div id="reply-content">
+                                <button onclick="generateTemplateContent(true, ${inst.id}); document.getElementById('reply-content').lastElementChild.classList.remove('hidden');" class="w-full bg-indigo-500 text-white py-2 rounded-lg hover:bg-indigo-600 transition">
+                                    AI 회신 내용 생성 & 편집
+                                </button>
+                            </div>
+                            <!-- '회신 전송' 버튼은 템플릿 생성 후 동적으로 생성되도록 수정 -->
+                        </div>
+                    </div>
+                `;
+            } else if (stage === 'Contract') {
+                // 계약 단계 상세
+                title = `${inst.name} - 계약서 초안 관리`;
+                content = `
+                    <div class="space-y-4">
+                        <div class="flex space-x-4 mb-4">
+                            <button onclick="generateContractDraft('${inst.name}')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">AI 계약서 초안 자동 생성</button>
+                            <button onclick="loadExistingContract('${inst.name}')" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition">기존 템플릿 불러오기</button>
+                        </div>
+                        <textarea id="contract-editor" class="w-full h-80 p-4 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="계약서 초안을 여기에 작성하거나 AI 생성 버튼을 눌러주세요.">${
+                            inst.contractDraft || '계약서 초안이 생성되지 않았습니다.'
+                        }</textarea>
+                        
+                        <div class="flex justify-between items-center pt-2 border-t">
+                            <button onclick="downloadPdf('${inst.name}_강의_계약서.pdf')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">PDF 다운로드</button>
+                            <button onclick="sendContractEmail('${inst.name}')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center">
+                                ${gmailIcon}
+                                <span class="ml-1">최종 계약서 발송 (Gmail API)</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 모달을 열기 전에 모달 내용을 설정
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerHTML = content;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        // 전체 앱 렌더링
+        function renderApp() {
+            // 사이드바 업데이트
+            document.getElementById('tab-dashboard').classList.toggle('tab-active', activeTab === 'dashboard');
+            document.getElementById('tab-crm').classList.toggle('tab-active', activeTab === 'crm');
+
+            // 메인 콘텐츠 렌더링
+            if (activeTab === 'dashboard') {
+                // 'dashboard' 탭으로 전환 시, currentPage를 1로 재설정
+                currentPage = 1; 
+                renderCreatorDashboard();
+            } else if (activeTab === 'crm') {
+                // 'crm' 탭으로 전환 시, currentPage를 1로 재설정 (Qualified Funnel의 페이징을 위해)
+                currentPage = 1;
+                renderContactManagement();
+            }
+        }
+
+        // 초기 로드
+        window.onload = () => {
+            renderApp();
+        };
+    </script>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Custom Modal (alert 대체) -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full m-4">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div id="modal-icon" class="flex-shrink-0 mr-3"></div>
+                    <h3 id="modal-title" class="text-2xl font-bold text-gray-800">알림</h3>
+                </div>
+                <div id="modal-body" class="text-gray-700 space-y-3">
+                    <!-- Dynamic content here -->
+                </div>
+                <div class="mt-6 text-right">
+                    <button onclick="closeModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">확인</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. 사이드 내비게이션 -->
+    <nav class="w-64 bg-gray-800 text-white flex flex-col flex-shrink-0">
+        <div class="p-6 text-3xl font-extrabold text-indigo-400 border-b border-gray-700">
+            Coloso NOVA
+        </div>
+        <div class="flex flex-col p-4 space-y-2">
+            <button id="tab-dashboard" onclick="setTab('dashboard')" class="tab-active flex items-center p-3 rounded-lg hover:bg-gray-700 transition duration-150">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-4.2 4.5-5-5L6 15"/></svg>
+                <span>Creator Dashboard</span>
+            </button>
+            <button id="tab-crm" onclick="setTab('crm')" class="flex items-center p-3 rounded-lg hover:bg-gray-700 transition duration-150">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span>Creator Contact Management</span>
+            </button>
+        </div>
+        <div class="mt-auto p-4 text-xs text-gray-500 border-t border-gray-700">
+            <p>Powered by Gemini LLM & Coloso Data</p>
+        </div>
+    </nav>
+
+    <!-- 2. 메인 콘텐츠 영역 -->
+    <main id="main-content" class="flex-grow overflow-y-auto">
+        <!-- Content will be rendered by JavaScript -->
+    </main>
+</body>
+</html>
