@@ -17,10 +17,26 @@
         .kanban-card { transition: transform 0.2s, box-shadow 0.2s; }
         .kanban-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
         .tab-active { background-color: #4f46e5; color: white; }
+        .sub-tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; font-weight: 600; }
+        /* Report Clickable Style */
+        .report-clickable { cursor: pointer; text-decoration: underline; text-decoration-color: #a5b4fc; text-underline-offset: 4px; transition: color 0.1s; }
+        .report-clickable:hover { color: #4f46e5; }
+
+        /* Modal backdrop for blocking outside clicks */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.8); /* slate-900 with opacity */
+            z-index: 49; /* Below modal content but above everything else */
+        }
     </style>
     <script>
         // 글로벌 상태 관리 및 상수
         let activeTab = 'dashboard';
+        let activeSubTab = 'ai-result'; // 'ai-result' 또는 'saved-list'
         let instructors = [];
         const ITEMS_PER_PAGE = 10; // 페이지당 10개 리스트
         let currentPage = 1;
@@ -29,10 +45,13 @@
         // 아이콘 (로고) SVG 정의
         const logoSVG = {
             'Instagram': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-500"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`,
-            'Twitter/X': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-gray-800"><path d="M18.9 20.3c-.6 0-1.2-.2-1.8-.7-.2-.2-.5-.3-.9-.3h-.1c-1.3 0-2.6-.5-3.8-1.5-2.8-2.3-4.5-5.5-4.7-9.4H8c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5h-.1c.3-.8.6-1.6 1.1-2.4 0 0 .1-.2.4-.2.2-.1.5-.1.7.1l.6.6c.6.6 1.3 1 2.1 1.2.9.2 1.8.1 2.6-.3.1-.1.3-.1.5 0 .2.1.3.3.3.5 0 .2 0 .4-.1.6-1.5 3.3-1.6 7.1-.1 10.3 1.3 2.9 3.5 4.8 6 5.8 0 0 .1 0 .2 0 .6 0 1-.5 1-1.1s-.5-1.1-1.1-1.1c-.8 0-1.5-.4-2.1-1.1-.3-.4-.7-.7-1.2-.9-.4-.1-.8-.2-1.2-.2-.5 0-1 .1-1.4.3-.7.4-1.2 1-1.5 1.7-.1.2-.3.4-.6.4z"/></svg>`,
-            'Behance': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M14.92 12c-2.7 0-4.9-2.2-4.9-4.9S12.22 2.2 14.92 2.2h4.9s.7 1.7.7 2.7V12h-5.6zm.5-7.8c1.7 0 3.2 1.4 3.2 3.2s-1.5 3.2-3.2 3.2h-3.2c1.7 0 3.2-1.4 3.2-3.2s-1.5-3.2-3.2-3.2h3.2zM21 17.5c0 2.5-2 4.5-4.5 4.5H3V12h13.5c2.5 0 4.5 2 4.5 4.5zM3 17.5h13.5c1.7 0 3.2-1.4 3.2-3.2s-1.5-3.2-3.2-3.2H3v6.4z"></path></svg>`
+            'Twitter/X': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" class="text-gray-900 bg-black rounded-full"><path d="M13.447 11.907L20.443 4H18.083L12.396 10.994L7.848 4H4L11.536 15.112L4 20H6.36L12.373 13.084L17.152 20H21L13.447 11.907ZM7.276 5.118H6.182L17.747 18.892H18.842L7.276 5.118Z"/></svg>`,
+            'Behance': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#0057ff" class="text-white"><circle cx="12" cy="12" r="12" fill="#0057ff"/><path fill="#FFFFFF" d="M9.135 15.35c.18.27.3.56.36.87.06.31.09.58.09.8a1.27 1.27 0 00-.31.87c-.18.33-.5.5-.96.5a2.22 2.22 0 01-1.25-.33v2.85h-1.9v-8.4h2.17c1.47 0 2.47.38 3.03 1.15.56.77.85 1.9.85 3.39 0 .4-.03.8-.09 1.16-.06.36-.18.72-.34 1.05zM7.22 9.4h2.23c.74 0 1.25-.13 1.55-.4.3-.27.45-.66.45-1.17s-.15-.9-.45-1.17c-.3-.27-.8-.4-1.55-.4H7.22v3.14zM16.14 15.2c.18.25.29.53.33.84.05.31.08.6.08.85 0 .6-.18 1.04-.54 1.3-.36.26-.95.39-1.78.39-1.2 0-2.12-.4-2.75-1.19a3.86 3.86 0 01-1-2.91 4.7 4.7 0 01.99-3.05c.63-.75 1.58-1.14 2.85-1.14 1.24 0 2.15.3 2.75.9.6.6.9 1.5.9 2.7 0 .3-.03.6-.09.84-.06.24-.16.5-.32.75zM14.28 9.4h2.23c.74 0 1.25-.13 1.55-.4.3-.27.45-.66.45-1.17s-.15-.9-.45-1.17c-.3-.27-.8-.4-1.55-.4h-2.23v3.14z"/></svg>`,
+            'Gmail': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`
         };
-        const gmailIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
+        const gmailIcon = logoSVG['Gmail'];
+        const bookmarkEmpty = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-gray-400 hover:text-indigo-500 transition duration-150"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
+        const bookmarkFilled = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4f46e5" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-indigo-600 transition duration-150"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
 
 
         const funnelStages = {
@@ -42,34 +61,36 @@
             'Contract': '계약 단계'
         };
 
-        // 시연용 초기 더미 데이터 (총 12개로 확장)
+        // 시연용 초기 더미 데이터 (Nekojira 추가)
         const initialInstructors = [
-            { id: 101, name: "ArtValkyrie", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/artvalkyrie", followers: "125K", engagement: "15%", aiScore: 9.3, style: "사이버펑크 디자인", trend: "태국 시장", comment: "퀄리티 최상, 콜로소 중복 낮음.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "artvalkyrie@gmail.com" },
-            { id: 102, name: "PixelSmith", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/pixelsmith", followers: "45K", engagement: "22%", aiScore: 8.7, style: "레트로 픽셀 아트", trend: "글로벌 수요", comment: "팬덤 강력, 커리큘럼 논의 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "pixelsmith" },
-            { id: 103, name: "DigitalMonk", platform: "Behance", stage: "Qualified", url: "https://behance.net/digitalmonk", followers: "80K", engagement: "7%", aiScore: 9.0, style: "동양화 일러스트", trend: "일본 시장", comment: "독보적 스타일, 잠재 고객 층 확실.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "digitalmonk@gmail.com" },
-            { id: 104, name: "ConceptDreamer", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/conceptdreamer", followers: "110K", engagement: "14%", aiScore: 8.8, style: "컨셉 아트", trend: "대규모 프로젝트", comment: "긍정적 회신, 미팅 시간 조율 중.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "conceptdreamer" },
-            { id: 105, name: "VibeSketch", platform: "Behance", stage: "Qualified", url: "https://behance.net/vibesketch", followers: "30K", engagement: "10%", aiScore: 7.9, style: "패션 스케치", trend: "정체 중", comment: "니치 마켓, 성장률 체크 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "vibesketch@gmail.com" },
-            { id: 106, name: "VoxelGenius", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/voxelgenius", followers: "55K", engagement: "19%", aiScore: 8.5, style: "복셀 3D 모델링", trend: "메타버스 인기", comment: "새로운 분야의 선구자, 시장 테스트 적합.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "voxelgenius@gmail.com" },
-            { id: 107, name: "LineAnimator", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/lineanimator", followers: "95K", engagement: "16%", aiScore: 9.1, style: "2D 라인 애니메이션", trend: "바이럴 가능성 높음", comment: "단순하지만 매력적인 콘텐츠.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "lineanimator" },
-            { id: 108, name: "Photorealist", platform: "Behance", stage: "Qualified", url: "https://behance.net/photorealist", followers: "130K", engagement: "5%", aiScore: 8.2, style: "극사실주의 페인팅", trend: "고급 스킬 시장", comment: "압도적인 기술력, 강의 난이도 조절 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "photorealist@gmail.com" },
-            { id: 109, name: "CreativeCoder", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/creativecoder", followers: "40K", engagement: "17%", aiScore: 7.8, style: "프로그래밍 아트", trend: "신기술 결합", comment: "새로운 시도, 기술적 검증 필요.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "creativecoder@gmail.com" },
-            { id: 110, name: "CharcoalMaster", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/charcoalmaster", followers: "65K", engagement: "11%", aiScore: 8.4, style: "전통 숯 드로잉", trend: "클래식 아트", comment: "안정적인 수요층 확보.", selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "charcoalmaster" },
+             // Nekojira 추가 (최상단)
+            { id: 100, name: "Nekojira", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/Nekojira", followers: "634K", engagement: "25%", aiScore: 9.8, style: "서브컬처 풍 일러스트", trend: "글로벌 시장 (미국/일본/태국)", comment: "압도적인 팬덤과 퀄리티, 즉시 콜로소 강의 기획 착수 필요.", selected: false, saved: true, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "Nekojira" },
+            { id: 101, name: "ArtValkyrie", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/artvalkyrie", followers: "125K", engagement: "15%", aiScore: 9.3, style: "사이버펑크 디자인", trend: "태국 시장", comment: "퀄리티 최상, 콜로소 중복 낮음.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "artvalkyrie@gmail.com" },
+            { id: 102, name: "PixelSmith", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/pixelsmith", followers: "45K", engagement: "22%", aiScore: 8.7, style: "레트로 픽셀 아트", trend: "글로벌 수요", comment: "팬덤 강력, 커리큘럼 논의 필요.", selected: false, saved: true, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "pixelsmith" },
+            { id: 103, name: "DigitalMonk", platform: "Behance", stage: "Qualified", url: "https://behance.net/digitalmonk", followers: "80K", engagement: "7%", aiScore: 9.0, style: "동양화 일러스트", trend: "일본 시장", comment: "독보적 스타일, 잠재 고객 층 확실.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "digitalmonk@gmail.com" },
+            { id: 104, name: "ConceptDreamer", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/conceptdreamer", followers: "110K", engagement: "14%", aiScore: 8.8, style: "컨셉 아트", trend: "대규모 프로젝트", comment: "긍정적 회신, 미팅 시간 조율 중.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "conceptdreamer" },
+            { id: 105, name: "VibeSketch", platform: "Behance", stage: "Qualified", url: "https://behance.net/vibesketch", followers: "30K", engagement: "10%", aiScore: 7.9, style: "패션 스케치", trend: "정체 중", comment: "니치 마켓, 성장률 체크 필요.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "vibesketch@gmail.com" },
+            { id: 106, name: "VoxelGenius", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/voxelgenius", followers: "55K", engagement: "19%", aiScore: 8.5, style: "복셀 3D 모델링", trend: "메타버스 인기", comment: "새로운 분야의 선구자, 시장 테스트 적합.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "voxelgenius@gmail.com" },
+            { id: 107, name: "LineAnimator", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/lineanimator", followers: "95K", engagement: "16%", aiScore: 9.1, style: "2D 라인 애니메이션", trend: "바이럴 가능성 높음", comment: "단순하지만 매력적인 콘텐츠.", selected: false, saved: true, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "lineanimator" },
+            { id: 108, name: "Photorealist", platform: "Behance", stage: "Qualified", url: "https://behance.net/photorealist", followers: "130K", engagement: "5%", aiScore: 8.2, style: "극사실주의 페인팅", trend: "고급 스킬 시장", comment: "압도적인 기술력, 강의 난이도 조절 필요.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "photorealist@gmail.com" },
+            { id: 109, name: "CreativeCoder", platform: "Instagram", stage: "Qualified", url: "https://instagram.com/creativecoder", followers: "40K", engagement: "17%", aiScore: 7.8, style: "프로그래밍 아트", trend: "신기술 결합", comment: "새로운 시도, 기술적 검증 필요.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "creativecoder@gmail.com" },
+            { id: 110, name: "CharcoalMaster", platform: "Twitter/X", stage: "Qualified", url: "https://x.com/charcoalmaster", followers: "65K", engagement: "11%", aiScore: 8.4, style: "전통 숯 드로잉", trend: "클래식 아트", comment: "안정적인 수요층 확보.", selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: "charcoalmaster" },
             
-            { id: 201, name: "NeonSculptor", platform: "Instagram", stage: "Initial Contact Sent", url: "https://instagram.com/neonsculptor", followers: "180K", engagement: "12%", aiScore: 9.5, style: "네온 3D 모델링", trend: "미국 트렌드", comment: "최고 점수, 즉시 컨택 필요.", selected: false, lastContact: { date: "2025-10-01", medium: "Gmail", planner: plannerName, isReplied: false, content: "안녕하세요, NeonSculptor님. 저희 Coloso는 연사님의 네온 3D 모델링 작품에 큰 감명을 받았습니다. 강의 제안서 첨부합니다." }, lastResponse: null, contactTarget: "neonsculptor@gmail.com" },
-            { id: 202, name: "InkFlow", platform: "Twitter/X", stage: "Initial Contact Sent", url: "https://x.com/inkflow", followers: "60K", engagement: "18%", aiScore: 8.5, style: "카툰 드로잉", trend: "높은 호환성", comment: "대중적 스타일, 접근성 좋음.", selected: false, lastContact: { date: "2025-10-05", medium: "Instagram DM", planner: plannerName, isReplied: false, content: "안녕하세요! 저희는 InkFlow님의 카툰 드로잉 강의를 제안드립니다. 확인 부탁드려요." }, lastResponse: null, contactTarget: "inkflow" },
+            { id: 201, name: "NeonSculptor", platform: "Instagram", stage: "Initial Contact Sent", url: "https://instagram.com/neonsculptor", followers: "180K", engagement: "12%", aiScore: 9.5, style: "네온 3D 모델링", trend: "미국 트렌드", comment: "최고 점수, 즉시 컨택 필요.", selected: false, saved: true, lastContact: { date: "2025-10-01", medium: "Gmail", planner: plannerName, isReplied: false, content: "안녕하세요, NeonSculptor님. 저희 Coloso는 연사님의 네온 3D 모델링 작품에 큰 감명을 받았습니다. 강의 제안서 첨부합니다." }, lastResponse: null, contactTarget: "neonsculptor@gmail.com" },
+            { id: 202, name: "InkFlow", platform: "Twitter/X", stage: "Initial Contact Sent", url: "https://x.com/inkflow", followers: "60K", engagement: "18%", aiScore: 8.5, style: "카툰 드로잉", trend: "높은 호환성", comment: "대중적 스타일, 접근성 좋음.", selected: false, saved: false, lastContact: { date: "2025-10-05", medium: "Instagram DM", planner: plannerName, isReplied: false, content: "안녕하세요! 저희는 InkFlow님의 카툰 드로잉 강의를 제안드립니다. 확인 부탁드려요." }, lastResponse: null, contactTarget: "inkflow" },
             
             { 
-                id: 301, name: "MotionWizard", platform: "Instagram", stage: "In Communication", url: "https://instagram.com/motionwizard", followers: "200K", engagement: "10%", aiScore: 9.1, style: "모션 그래픽", trend: "높은 검색량", comment: "콜로소 강의 제안 수락.", selected: false, 
+                id: 301, name: "MotionWizard", platform: "Instagram", stage: "In Communication", url: "https://instagram.com/motionwizard", followers: "200K", engagement: "10%", aiScore: 9.1, style: "모션 그래픽", trend: "높은 검색량", comment: "콜로소 강의 제안 수락.", selected: false, saved: true,
                 lastContact: { date: "2025-09-20", medium: "Gmail", planner: plannerName, isReplied: true, content: "제안서 발송 (초기 제안)" },
                 lastResponse: { medium: "Instagram DM", date: "2025-09-23", summary: "주제 조정 요청: '기초 모션' 대신 '고급 이펙트'로 진행 희망.", fullContent: "DM 내용: 제안 감사드립니다! 기초 과정은 이미 많은 채널에서 다루고 있어, 저는 고급 테크닉(파티클/시뮬레이션) 위주로 진행하고 싶습니다. 내부 검토 부탁드려요.", followUpDays: 20, todo: "강의 주제 '고급 이펙트'로 조정 및 커리큘럼 초안 재전달." }, contactTarget: "motionwizard"
             },
             { 
-                id: 302, name: "WebFlowMaster", platform: "Behance", stage: "In Communication", url: "https://behance.net/webflowmaster", followers: "50K", engagement: "8%", aiScore: 8.0, style: "웹 디자인/UX", trend: "실무 수요", comment: "모든 조건 합의 완료.", selected: false, 
+                id: 302, name: "WebFlowMaster", platform: "Behance", stage: "In Communication", url: "https://behance.net/webflowmaster", followers: "50K", engagement: "8%", aiScore: 8.0, style: "웹 디자인/UX", trend: "실무 수요", comment: "모든 조건 합의 완료.", selected: false, saved: false,
                 lastContact: { date: "2025-09-25", medium: "Gmail", planner: plannerName, isReplied: true, content: "강의료 재조정 요청" },
                 lastResponse: { medium: "Gmail", date: "2025-10-01", summary: "강의료 협상 요청 (기존 제안 대비 15% 인상 희망).", fullContent: "메일 내용: 제안서 잘 받았습니다. 강의 주제는 마음에 듭니다. 다만, 이 정도 규모의 강의라면 강의료를 15% 인상하는 것을 고려해주시면 좋겠습니다. 회신 기다리겠습니다.", followUpDays: 12, todo: "강의료 조정 재무팀과 협의 및 재제안." }, contactTarget: "webflowmaster@gmail.com"
             },
             
-            { id: 401, name: "GameArtist", platform: "Instagram", stage: "Contract", url: "https://instagram.com/gameartist", followers: "150K", engagement: "13%", aiScore: 9.6, style: "게임 원화", trend: "최대 인기", comment: "최종 계약서 서명 대기.", selected: false, lastContact: { date: "2025-10-08", medium: "Gmail", planner: plannerName, isReplied: false, content: "계약 조건 최종 합의" }, lastResponse: null, contractDraft: "GameArtist 강의 제작 계약서\n\n1. 강의명: [최신 트렌드 게임 원화]\n2. 연사: GameArtist\n3. 강의료: 50,000,000원 (최종 협의)\n4. 계약일: 2025년 10월 13일\n\n[이하 상세 조항 생략]", contactTarget: "gameartist@gmail.com" },
+            { id: 401, name: "GameArtist", platform: "Instagram", stage: "Contract", url: "https://instagram.com/gameartist", followers: "150K", engagement: "13%", aiScore: 9.6, style: "게임 원화", trend: "최대 인기", comment: "최종 계약서 서명 대기.", selected: false, saved: true, lastContact: { date: "2025-10-08", medium: "Gmail", planner: plannerName, isReplied: false, content: "계약 조건 최종 합의" }, lastResponse: null, contractDraft: "GameArtist 강의 제작 계약서\n\n1. 강의명: [최신 트렌드 게임 원화]\n2. 연사: GameArtist\n3. 강의료: 50,000,000원 (최종 협의)\n4. 계약일: 2025년 10월 13일\n\n[이하 상세 조항 생략]", contactTarget: "gameartist@gmail.com" },
         ];
         
         // 초기화
@@ -79,13 +100,20 @@
         function setTab(tabName) {
             activeTab = tabName;
             currentPage = 1; // 탭 변경 시 페이지 초기화
+            activeSubTab = 'ai-result'; // 메인 탭 변경 시 서브 탭 초기화
             renderApp();
+        }
+
+        function setSubTab(subTabName) {
+            activeSubTab = subTabName;
+            currentPage = 1;
+            renderCreatorDashboard();
         }
 
         // --- 공통 유틸리티 함수 ---
 
         // 모달 표시 (alert 대체)
-        function showModal(title, message, isSuccess = false) {
+        function showModal(title, message, isSuccess = false, hasConfirm = false, confirmAction = null, confirmId = null) {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-body').innerHTML = message;
             
@@ -94,35 +122,43 @@
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>` 
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>`;
             
+            // 버튼 영역 초기화
+            const buttonContainer = document.getElementById('modal-buttons');
+            buttonContainer.innerHTML = '';
+            
+            if (hasConfirm) {
+                // '예', '아니오' 버튼
+                buttonContainer.innerHTML = `
+                    <button onclick="closeModal(); ${confirmAction}(${confirmId})" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">예</button>
+                    <button onclick="closeModal()" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition">아니오</button>
+                `;
+            } else {
+                // '확인' 버튼만 (모든 모달에 기본적으로 닫기 버튼 제공)
+                buttonContainer.innerHTML = `
+                    <button onclick="closeModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">확인</button>
+                `;
+            }
+
             document.getElementById('custom-modal').classList.remove('hidden');
         }
 
         // 모달 닫기
         function closeModal() {
+            // 모달 크기 복원 로직
+            const modalContainer = document.getElementById('custom-modal').querySelector('div:first-child');
+            if (modalContainer) {
+                // max-w-3xl이 적용되었었다면 제거하고 max-w-lg를 다시 추가
+                modalContainer.classList.remove('max-w-3xl');
+                modalContainer.classList.add('max-w-lg');
+            }
             document.getElementById('custom-modal').classList.add('hidden');
-            // '협의 진행 중' 탭에서 회신 후 모달 닫을 때 CRM 대시보드를 리로드하여 업데이트 반영
             if (activeTab === 'crm') {
                  renderContactManagement();
             }
         }
 
-        // PDF 다운로드 시뮬레이션
-        function downloadPdf(filename) {
-            const contractContent = document.getElementById('contract-editor').value;
-            // PDF 파일 내용을 생성 (실제 PDF 생성은 아님)
-            const pdfContent = `Coloso 강의 계약서\n\n${contractContent}`;
-            const blob = new Blob([pdfContent], { type: 'application/pdf' });
-            
-            // 다운로드 링크 생성 및 클릭
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            showModal('다운로드 완료!', `<strong>${filename}</strong> 파일을 PDF 형식으로 다운로드했습니다.`, true);
-        }
+        // PDF 다운로드 시뮬레이션 (생략)
+        function downloadPdf(filename) { /* ... */ }
         
         // 전송 확인 모달 (1단계: 전송하시겠습니까?)
         function confirmSendTemplate(id) {
@@ -132,20 +168,14 @@
                 return;
             }
 
-            // 모달 초기화
-            document.getElementById('modal-body').innerHTML = `<p class="text-md font-semibold">선택된 연사에게 컨택 메시지를 전송하시겠습니까?</p><p class="text-sm text-gray-500 mt-2">전송 후 'Creator Contact Management'에서 현황 관리가 가능합니다.</p>`;
-            document.getElementById('modal-title').innerText = '전송 확인';
-
-            const modalBody = document.getElementById('modal-body');
-            modalBody.innerHTML += `<div class="mt-4 flex justify-end space-x-2"><button onclick="closeModal(); sendTemplateConfirmed(${id});" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">네</button><button onclick="closeModal()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition">아니오</button></div>`;
-            document.getElementById('custom-modal').classList.remove('hidden');
+            const message = `<p class="text-md font-semibold">선택된 연사에게 컨택 메시지를 전송하시겠습니까?</p><p class="text-sm text-gray-500 mt-2">전송 후 'Creator Contact Management'에서 현황 관리가 가능합니다.</p>`;
+            showModal('전송 확인', message, false, true, 'sendTemplateConfirmed', id);
         }
 
         // 전송 완료 모달 (2단계: 전송 완료되었습니다)
         function sendTemplateConfirmed(id) {
             const selectedInstructor = instructors.find(inst => inst.id === id);
             
-            // 상태 업데이트: 스테이지 변경
             instructors = instructors.map(inst => 
                 inst.id === id ? { ...inst, stage: 'Initial Contact Sent', selected: false, 
                     lastContact: { 
@@ -155,7 +185,7 @@
                         isReplied: false, 
                         content: document.getElementById('contact-content').value 
                     } 
-                } : { ...inst, selected: false } // 모든 선택 해제
+                } : { ...inst, selected: false }
             );
 
             showModal('전송 완료!', `
@@ -164,8 +194,40 @@
                 <p class="text-sm text-gray-500 mt-2">현황은 'Creator Contact Management'에서 '초기 컨택 완료' 스테이지로 이동하여 관리하실 수 있습니다.</p>
             `, true);
             
-            // 완료 후 템플릿 영역 초기화 및 대시보드 리로드
             renderCreatorDashboard();
+        }
+
+        // --- Bookmark (Saved List) 기능 ---
+
+        // 북마크 상태 토글 (Saved List에 추가/삭제)
+        function toggleBookmark(id) {
+            const instructor = instructors.find(inst => inst.id === id);
+            if (!instructor) return;
+
+            if (instructor.saved) {
+                // 해제 로직 (팝업 확인)
+                const message = `<p class="text-md font-semibold">${instructor.name}님을 '저장된 크리에이터 목록'에서 삭제하시겠습니까?</p><p class="text-sm text-red-500 mt-2">삭제 시 찜 목록에서만 제거되며, AI 스크리닝 결과에는 남아있습니다.</p>`;
+                showModal('저장 취소 확인', message, false, true, 'confirmRemoveBookmark', id);
+            } else {
+                // 추가 로직
+                instructors = instructors.map(inst => 
+                    inst.id === id ? { ...inst, saved: true } : inst
+                );
+                showModal('찜 목록 추가 완료', `<strong>${instructor.name}</strong>님이 찜 목록에 추가되었습니다.`, true);
+                renderApp();
+            }
+        }
+        
+        // 찜 목록 삭제 최종 확인
+        function confirmRemoveBookmark(id) {
+             instructors = instructors.map(inst => 
+                inst.id === id ? { ...inst, saved: false } : inst
+            );
+            
+            // Saved Creator List 탭에 있을 경우, 목록을 새로고침
+            if (activeSubTab === 'saved-list') {
+                renderCreatorDashboard(); 
+            }
         }
 
         // --- Tab 1: Creator Dashboard (연사 발굴) 기능 ---
@@ -213,7 +275,7 @@
                 followers: "N/A", engagement: "N/A", aiScore: 'Loading',
                 style: "AI 분석 중...", trend: "AI 분석 중...", 
                 comment: `<div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-2 bg-indigo-500 animate-[pulse_1s_infinite]"></div></div> AI가 소셜 데이터 수집 및 멀티모달 분석을 진행하고 있습니다. (3초 소요)`,
-                selected: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: platform === 'Instagram' || platform === 'Twitter/X' ? creatorId : `${creatorId.toLowerCase().replace(/\s/g, '')}@gmail.com`
+                selected: false, saved: false, lastContact: { date: "N/A", medium: "N/A", planner: "N/A", isReplied: false }, lastResponse: null, contactTarget: platform === 'Instagram' || platform === 'Twitter/X' ? creatorId : `${creatorId.toLowerCase().replace(/\s/g, '')}@gmail.com`
             };
 
             instructors.unshift(newInstructor);
@@ -227,9 +289,11 @@
                         return { 
                             ...inst, 
                             aiScore: 8.9, 
-                            followers: "75K", engagement: "11%",
-                            style: "미니멀리즘 웹툰", trend: "한국 시장 신흥 트렌드", 
-                            comment: "수동 추가된 연사. AI 스코어링 완료. 즉시 컨택 추천." 
+                            followers: "75K", 
+                            engagement: "11%",
+                            style: "미니멀리즘 웹툰", 
+                            trend: "한국 시장 신흥 트렌드", 
+                            comment: "수동 추가된 연사. AI 스코어링 완료. 즉시 컨택 추천. (데이터는 AI 툴 시뮬레이션 결과입니다.)" 
                         };
                     }
                     return inst;
@@ -307,9 +371,12 @@
                         <span class="text-sm font-medium text-gray-700">내용 (LLM 자동 생성 & 수정 가능)</span>
                         <textarea id="contact-content" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">${content}</textarea>
                     </label>
-                    ${isReply ? `<button onclick="confirmSendReply(${selectedInstructor.id})" class="mt-3 w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition">회신 전송</button>` : `<button onclick="confirmSendTemplate(${selectedInstructor.id})" class="mt-3 w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition">전송</button>`}
                 </div>
             `;
+            // 회신 버튼은 여기서 생성되어 모달 내부에 배치됨
+            if(isReply) {
+                 document.getElementById('reply-content').innerHTML += `<button onclick="confirmSendReply(${selectedInstructor.id})" class="mt-3 w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition">회신 전송</button>`;
+            }
         }
 
         // 회신 전송 확인 모달
@@ -332,7 +399,6 @@
             const selectedInstructor = instructors.find(inst => inst.id === id);
             
             // 상태 업데이트: In Communication 상태 유지 (시연용)
-            // 실제 구현에서는 lastContact/lastResponse 필드를 업데이트해야 함
             showModal('회신 전송 완료!', `
                 <p class="text-xl font-bold text-green-600 mb-2">✅ 회신이 성공적으로 전송되었습니다!</p>
                 <p class="text-md text-gray-700">${selectedInstructor.name}님에게 협의 내용이 전달되었습니다.</p>
@@ -358,15 +424,10 @@
             }
         }
 
-
-        // --- 페이징 및 렌더링 ---
+        // --- 페이징 함수 ---
         function setPage(page) {
             currentPage = page;
-            if (activeTab === 'dashboard') {
-                renderCreatorDashboard();
-            } else if (activeTab === 'crm') {
-                renderContactManagement();
-            }
+            renderApp();
         }
 
         function renderPagination(totalItems) {
@@ -383,16 +444,139 @@
             }
             return `<div class="flex justify-center mt-6 space-x-2">${pages.join('')}</div>`;
         }
+        
+        // --- AI Full Report 기능 ---
+
+        function showFullReport(id) {
+            const inst = instructors.find(i => i.id === id);
+            if (!inst || inst.aiScore === 'Loading') {
+                showModal('분석 대기 중', 'AI 분석이 완료되지 않았습니다. 잠시 후 다시 시도해주세요.');
+                return;
+            }
+
+            const similarityData = getSimilarityData(inst.name);
+            const detailedAnalysis = getDetailedAnalysis(inst.name, inst.style, inst.trend);
+
+
+            const reportContent = `
+                <div class="space-y-6">
+                    <h4 class="text-xl font-bold text-gray-800 border-b pb-2">AI 멀티모달 콘텐츠 분석 결과</h4>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <p class="font-semibold text-gray-700">스타일 및 기법</p>
+                            <p class="text-indigo-600 font-medium mt-1">${inst.style}</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <p class="font-semibold text-gray-700">시장 트렌드 부합도</p>
+                            <p class="text-indigo-600 font-medium mt-1">${inst.trend}</p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border rounded-lg bg-white shadow-sm">
+                        <p class="font-semibold text-lg text-indigo-700 mb-2">총평 및 선정 사유</p>
+                        <p class="text-gray-700 whitespace-pre-line">${detailedAnalysis}</p>
+                        
+                        <ul class="list-disc list-inside text-sm text-gray-600 mt-3 space-y-1">
+                            <li><strong>AI 창의성 평가:</strong> 9.0/10 (독창적인 색채와 구성)</li>
+                            <li><strong>AI 기술 완성도:</strong> 9.5/10 (매우 높은 전문성)</li>
+                            <li><strong>잠재적 강의 주제:</strong> ${inst.style.split(' ')[0]} 마스터 클래스, ${inst.trend.split(' ')[0]} 디자인 실무</li>
+                        </ul>
+                    </div>
+                    
+                    <h4 class="text-xl font-bold text-gray-800 border-b pb-2">과거 성공 사례 유사성 분석 (Vector DB)</h4>
+                    ${similarityData.length > 0 ? similarityData.map(item => `
+                        <div class="p-3 bg-purple-50 rounded-lg flex justify-between items-center text-sm">
+                            <div>
+                                <p class="font-semibold text-purple-800">${item.courseName} (매출 기준 상위 5%)</p>
+                                <p class="text-gray-700">${item.reason}</p>
+                            </div>
+                            <span class="font-bold text-lg text-purple-600">${item.similarity}%</span>
+                        </div>
+                    `).join('') : '<p class="text-gray-600">유사한 스타일의 성공 강의 사례가 존재하지 않습니다. 새로운 시장 선점 기회로 분석됩니다.</p>'}
+                </div>
+            `;
+            
+            // 모달 사이즈 조정
+            const modalContainer = document.getElementById('custom-modal').querySelector('div:first-child');
+            if (modalContainer) {
+                modalContainer.classList.remove('max-w-lg');
+                modalContainer.classList.add('max-w-3xl');
+            }
+            
+            // 모달 콘텐츠 설정
+            document.getElementById('modal-title').innerText = `[${inst.name}] AI 분석 상세 보고서`;
+            document.getElementById('modal-body').innerHTML = reportContent;
+            
+            // 보고서 모달에는 기본 '확인' 버튼을 다시 정의하여 닫기 기능 추가
+            document.getElementById('modal-buttons').innerHTML = `
+                <button onclick="closeModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">확인</button>
+            `;
+
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        // 시뮬레이션용 유사성 데이터 제공 함수
+        function getSimilarityData(name) {
+            const data = {
+                "Nekojira": [{ courseName: "서브컬처 캐릭터 디자인", similarity: 91, reason: "강한 명암 대비와 채색 기법의 일치" }],
+                "ArtValkyrie": [{ courseName: "미래지향적 컨셉 아트", similarity: 85, reason: "네온 컬러 팔레트 및 배경 구성 유사" }],
+                "PixelSmith": [{ courseName: "도트 애니메이션 심화", similarity: 78, reason: "8비트 텍스처 처리 방식 동일" }],
+                "GameArtist": [{ courseName: "AAA 게임 원화 마스터", similarity: 96, reason: "인체 해부학적 이해도 및 질감 표현 기술 거의 일치" }]
+            };
+            return data[name] || [];
+        }
+
+        // 시뮬레이션용 상세 분석 내용 제공 함수
+        function getDetailedAnalysis(name, style, trend) {
+            switch (name) {
+                case "Nekojira":
+                    return `
+                    Nekojira 작가는 ${style} 분야에서 독보적인 위치를 차지하고 있으며, 특히 X(구 트위터)를 중심으로 충성도 높은 글로벌 팬덤(${trend})을 형성하고 있습니다. AI 이미지 분석 결과, 작가의 작품은 역동적인 구도와 세밀한 질감 표현에서 최고 수준의 기술 완성도(9.5/10)를 보였습니다. 
+                    \n\n현재 아시아권을 중심으로 폭발적으로 성장하는 서브컬처 시장의 핵심 니즈에 정확히 부합하며, 유사 성공 사례(91%)를 통해 볼 때 콜로소 런칭 시 높은 매출을 기대할 수 있습니다. 즉시 컨택 및 강의 기획을 진행해야 할 최우선 후보입니다.`;
+                case "ArtValkyrie":
+                    return `
+                    ArtValkyrie는 ${style}을 주력으로 하며, 주로 인스타그램을 통해 활발히 활동합니다. AI는 그의 작품에서 미학적 완성도(9.3/10)와 함께 현재 ${trend}에서 유행하는 미래지향적 디자인 요소들을 다수 감지했습니다. 
+                    \n\n특히, 네온 톤과 복잡한 구조물의 설계 능력이 뛰어나, 'Hard Surface Modeling' 등 특정 기술에 특화된 강의를 구성한다면 기존 콜로소 강의와 중복 없이 성공적인 판매를 기대할 수 있습니다.`;
+                case "DigitalMonk":
+                    return `
+                    DigitalMonk는 Behance를 중심으로 ${style} 분야에서 활동하며, 전통 예술과 디지털 기법을 결합한 독특한 스타일을 보유하고 있습니다. AI는 해당 스타일이 ${trend}의 전통 예술을 선호하는 잠재 고객 층과 강력하게 연결될 수 있음을 확인했습니다. 
+                    \n\nAI 분석상 기술 점수도 우수하지만, 희소성이 높아 독점적인 콘텐츠 경쟁력을 가집니다. 다만 Behance 기반 활동이므로, 팔로워 참여율(7%)은 다소 낮아 마케팅 전략 수립 시 이를 보완해야 합니다.`;
+                case "CharcoalMaster":
+                    return `
+                    CharcoalMaster는 ${style}과 같이 클래식한 아트 분야에 집중하며, 비교적 안정적인 수요층을 보유하고 있습니다. AI는 이 작가의 작품에서 드로잉의 기초와 깊이 있는 표현력을 포착하여 높은 기술 평가를 내렸습니다. 
+                    \n\n트렌드 반영도 측면에서는 낮지만, 꾸준한 수요가 있는 '클래식 아트' 분야의 깊이 있는 콘텐츠를 제공함으로써 콜로소의 교육 포트폴리오를 균형 있게 확장하는 데 기여할 수 있습니다.`;
+                default:
+                    return `
+                    ${name} 작가에 대한 AI의 멀티모달 분석이 완료되었습니다.
+                    \n\n전반적인 작품성은 ${style} 트렌드에 부합하며, 특히 ${trend} 시장에서 긍정적인 반응을 보일 것으로 예상됩니다. AI는 작가의 콘텐츠에서 독특한 미적 감각과 높은 기술력을 확인했으며, 이는 콜로소의 새로운 강의 주제로 매우 적합하다는 판단입니다. 상세한 스코어와 유사성 분석 결과는 위 표를 참고해 주십시오.`;
+            }
+        }
+
 
         // 탭 1 렌더링
         function renderCreatorDashboard() {
             const container = document.getElementById('main-content');
             const selectedInstructor = instructors.find(inst => inst.selected);
+            
+            let filteredInstructors;
+            let titleText;
+
+            if (activeSubTab === 'ai-result') {
+                filteredInstructors = instructors.filter(inst => inst.stage === 'Qualified' || inst.aiScore === 'Loading');
+                titleText = 'AI 기반 연사 스크리닝 결과';
+            } else { // saved-list
+                filteredInstructors = instructors.filter(inst => inst.saved);
+                titleText = 'Saved Creator List (찜 목록)';
+            }
+            
+            // 로딩 중인 항목은 항상 페이지 1에 표시
             const qualifiedInstructors = instructors.filter(inst => inst.stage === 'Qualified' || inst.aiScore === 'Loading');
+
 
             const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
             const endIndex = startIndex + ITEMS_PER_PAGE;
-            const paginatedInstructors = qualifiedInstructors.slice(startIndex, endIndex);
+            const paginatedInstructors = filteredInstructors.slice(startIndex, endIndex);
 
             const listHTML = paginatedInstructors.map(inst => {
                 const scoreColor = inst.aiScore >= 9.0 ? 'score-9' : inst.aiScore >= 8.0 ? 'score-8' : inst.aiScore === 'Loading' ? 'bg-gray-300' : 'score-7';
@@ -400,7 +584,12 @@
                 const isSelected = selectedInstructor && selectedInstructor.id === inst.id;
 
                 return `
-                    <div class="nova-card p-4 bg-white rounded-xl shadow-md flex items-start space-x-4 mb-4 border-l-4 ${isSelected ? 'border-purple-600 ring-2 ring-purple-300' : 'border-indigo-500'} transition duration-300 hover:shadow-lg">
+                    <div class="nova-card p-4 bg-white rounded-xl shadow-md flex items-start space-x-4 mb-4 border-l-4 ${isSelected ? 'border-purple-600 ring-2 ring-purple-300' : 'border-indigo-500'} transition duration-300 hover:shadow-lg relative">
+                        <!-- Bookmark Button -->
+                        <button onclick="toggleBookmark(${inst.id})" class="absolute top-3 right-3 z-10 p-1 rounded-full bg-white/70 backdrop-blur-sm shadow-md">
+                            ${inst.saved ? bookmarkFilled : bookmarkEmpty}
+                        </button>
+
                         <div class="flex-grow">
                             <div class="flex justify-between items-start">
                                 <div class="w-full">
@@ -415,42 +604,49 @@
                                         <span>참여율: ${inst.engagement}</span>
                                     </div>
                                 </div>
-                                <div class="text-right flex-shrink-0">
+                                <div class="text-right flex-shrink-0 mr-10"> <!-- 북마크 공간 확보 -->
                                     <div class="font-extrabold text-2xl px-3 py-1 rounded-full flex items-center justify-center h-10 w-16 ${scoreColor}">
                                         ${scoreDisplay}
                                     </div>
                                     <p class="text-xs font-semibold text-gray-600 mt-1">AI 스코어</p>
                                 </div>
                             </div>
-                            <div class="mt-3">
+                            <div class="mt-3" onclick="showFullReport(${inst.id})">
                                 <p class="text-sm font-semibold text-indigo-700">AI 분석 (멀티모달 LLM)</p>
-                                <p class="text-sm text-gray-700 mt-1">
+                                <p class="text-sm text-gray-700 mt-1 report-clickable">
                                     <strong>스타일:</strong> ${inst.style} <span class="text-gray-400">|</span> 
                                     <strong>트렌드:</strong> ${inst.trend}
                                 </p>
-                                <p class="text-xs text-gray-600 italic mt-1">${inst.comment}</p>
+                                <p class="text-xs text-gray-600 italic mt-1">${inst.comment.replace(/<[^>]*>?/gm, '')}</p>
                             </div>
-                            <div class="mt-3 flex justify-end space-x-2">
+                            <div class="mt-3 flex justify-between items-center">
                                 <button onclick="deleteInstructor(${inst.id}, '${inst.name}')" class="text-sm text-red-500 hover:text-red-700">삭제</button>
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelection(${inst.id})" class="form-checkbox h-5 w-5 text-purple-600 rounded-lg border-gray-300 focus:ring-purple-500">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">컨택 대상</span>
+                                </label>
                             </div>
-                        </div>
-                        <div class="flex-shrink-0">
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelection(${inst.id})" class="form-checkbox h-5 w-5 text-indigo-600 rounded-lg border-gray-300 focus:ring-indigo-500">
-                                <span class="ml-2 text-sm font-medium text-gray-700">컨택 대상</span>
-                            </label>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            const paginationHTML = renderPagination(qualifiedInstructors.length);
+            const paginationHTML = renderPagination(filteredInstructors.length);
 
             const templateHTML = `
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
                     <div class="lg:col-span-2 space-y-4">
-                        <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">AI 기반 연사 스크리닝 결과 (${qualifiedInstructors.length}명)</h2>
-                        <!-- 수동 추가 기능 -->
+                        <div class="flex border-b mb-4">
+                            <button onclick="setSubTab('ai-result')" class="px-4 py-2 text-lg transition duration-150 ${activeSubTab === 'ai-result' ? 'sub-tab-active' : 'text-gray-500 hover:text-gray-800'}">
+                                ${titleText} (${qualifiedInstructors.length}명)
+                            </button>
+                             <button onclick="setSubTab('saved-list')" class="px-4 py-2 text-lg transition duration-150 ${activeSubTab === 'saved-list' ? 'sub-tab-active' : 'text-gray-500 hover:text-gray-800'}">
+                                Saved Creator List (${instructors.filter(i => i.saved).length}명)
+                            </button>
+                        </div>
+                        
+                        <!-- 수동 추가 기능 (AI Result 탭에서만 표시) -->
+                        ${activeSubTab === 'ai-result' ? `
                         <div class="p-4 bg-indigo-50 rounded-xl flex items-center space-x-4 shadow-md">
                             <h3 class="font-bold text-indigo-800 flex-shrink-0">수동 연사 추가</h3>
                             <select id="manual-platform" class="rounded-md border-gray-300 p-2 text-sm border">
@@ -461,10 +657,11 @@
                             <input type="text" id="manual-id" placeholder="ID/URL 입력" class="flex-grow rounded-md border-gray-300 p-2 text-sm border">
                             <button onclick="addManualInstructor()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex-shrink-0">AI 분석 요청</button>
                         </div>
+                        ` : ''}
 
                         <!-- 연사 리스트 -->
                         <div id="instructor-list" class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                            ${listHTML}
+                            ${paginatedInstructors.length > 0 ? listHTML : '<p class="p-4 text-gray-500 text-center border rounded-lg">현재 목록에 해당되는 크리에이터가 없습니다.</p>'}
                             ${paginationHTML}
                         </div>
                     </div>
@@ -478,7 +675,7 @@
                                 <p class="text-xs text-gray-500">${selectedInstructor ? selectedInstructor.style : '좌측 목록에서 컨택 대상을 선택해주세요.'}</p>
                             </div>
                             
-                            <button onclick="generateTemplateContent()" id="generate-template-btn" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg shadow-md hover:bg-purple-700 transition ${selectedInstructor ? '' : 'opacity-50 pointer-events-none'}">
+                            <button onclick="generateTemplateContent()" id="generate-template-btn" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg shadow-md hover:bg-purple-700 transition ${selectedInstructor ? '' : 'opacity-50 pointer-events-none'}" ${selectedInstructor ? '' : 'disabled'}>
                                 🚀 맞춤형 템플릿 초안 생성 (Gemini LLM)
                             </button>
                             
@@ -489,8 +686,8 @@
                                 </div>
                             </div>
                             
-                            <!-- 중복 버튼 제거 및 단일 '전송' 버튼 유지 -->
-                            <button id="send-template-btn" onclick="confirmSendTemplate(${selectedInstructor ? selectedInstructor.id : 'null'})" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-green-700 transition ${selectedInstructor ? '' : 'opacity-50 pointer-events-none'}" ${selectedInstructor ? '' : 'disabled'}>
+                            <!-- 단일 '전송' 버튼 -->
+                            <button id="send-template-btn" onclick="confirmSendTemplate(${selectedInstructor ? selectedInstructor.id : 'null'})" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-green-700 transition ${selectedInstructor && document.getElementById('template-content').innerHTML.includes('label') ? '' : 'opacity-50 pointer-events-none'}" ${selectedInstructor && document.getElementById('template-content').innerHTML.includes('label') ? '' : 'disabled'}>
                                 전송
                             </button>
                         </div>
@@ -549,7 +746,7 @@
 
         // 탭 2 렌더링
         function renderContactManagement() {
-            const container = document.getElementById('main-content');
+             const container = document.getElementById('main-content');
             
             // 1. Qualified 항목 필터링 및 페이징
             const allQualifiedInstructors = instructors.filter(inst => inst.stage === 'Qualified' && inst.aiScore !== 'Loading');
@@ -652,7 +849,7 @@
                     <div class="space-y-4">
                         <p class="text-lg font-bold text-gray-800 border-b pb-2">컨택 발송 이력</p>
                         <div class="p-4 bg-indigo-50 rounded-lg space-y-2">
-                            <p class="text-sm font-semibold text-indigo-800 flex items-center">${inst.lastContact.medium.includes('Gmail') ? gmailIcon : inst.platform === 'Instagram' ? logoSVG['Instagram'] : logoSVG['Twitter/X']} <span class="ml-2">${inst.lastContact.medium}</span> 발송</p>
+                            <p class="text-sm font-semibold text-indigo-800 flex items-center">${inst.lastContact.medium.includes('Gmail') ? logoSVG['Gmail'] : inst.platform === 'Instagram' ? logoSVG['Instagram'] : logoSVG['Twitter/X']} <span class="ml-2">${inst.lastContact.medium}</span> 발송</p>
                             <p class="text-xs text-gray-600">발송 일자: ${inst.lastContact.date} | 발송 담당: ${inst.lastContact.planner}</p>
                             <p class="text-md font-medium text-gray-700 mt-2">${inst.lastContact.content.split('\n')[0].substring(0, 50)}...</p>
                             <button class="text-indigo-600 text-sm font-semibold hover:text-indigo-800 mt-1" onclick="showModal('발송 원본', '<textarea readonly class=\\'w-full h-80 p-2 border rounded-lg text-sm\\'>${inst.lastContact.content.replace(/'/g, '&#39;').replace(/"/g, '&quot;')}</textarea>', false)">원본 내용 확인</button>
@@ -680,11 +877,11 @@
                         <div class="p-4 bg-white rounded-lg shadow">
                             <h3 class="font-bold text-indigo-700 mb-2">💡 LLM 기반 회신 옵션</h3>
                             <div id="reply-content">
-                                <button onclick="generateTemplateContent(true, ${inst.id}); document.getElementById('reply-content').lastElementChild.classList.remove('hidden');" class="w-full bg-indigo-500 text-white py-2 rounded-lg hover:bg-indigo-600 transition">
-                                    AI 회신 내용 생성 & 편집
-                                </button>
+                                <!-- 템플릿 영역 -->
                             </div>
-                            <!-- '회신 전송' 버튼은 템플릿 생성 후 동적으로 생성되도록 수정 -->
+                            <button onclick="generateTemplateContent(true, ${inst.id});" class="w-full bg-indigo-500 text-white py-2 rounded-lg hover:bg-indigo-600 transition mt-2">
+                                AI 회신 내용 생성 & 편집
+                            </button>
                         </div>
                     </div>
                 `;
@@ -704,7 +901,7 @@
                         <div class="flex justify-between items-center pt-2 border-t">
                             <button onclick="downloadPdf('${inst.name}_강의_계약서.pdf')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">PDF 다운로드</button>
                             <button onclick="sendContractEmail('${inst.name}')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center">
-                                ${gmailIcon}
+                                ${logoSVG['Gmail']}
                                 <span class="ml-1">최종 계약서 발송 (Gmail API)</span>
                             </button>
                         </div>
@@ -717,6 +914,26 @@
             document.getElementById('modal-body').innerHTML = content;
             document.getElementById('custom-modal').classList.remove('hidden');
         }
+        
+        // 계약서 초안 자동 생성 시뮬레이션
+        function generateContractDraft(name) {
+            const inst = instructors.find(i => i.name === name);
+            const editor = document.getElementById('contract-editor');
+            if (editor) {
+                editor.value = `[AI 기반 ${name} 계약서 초안 생성]\n\n1. 강의명: [AI 추천: ${inst.style} 마스터 클래스]\n2. 연사: ${name}\n3. 강의료: [AI 최적 제안: 45,000,000원]\n4. 제작 기간: 6개월\n5. 권리: Coloso 독점 사용\n\n[LLM 상세 조항 추가: AI 분석 결과 (${inst.aiScore}점)에 따라 초기 계약금 5% 추가 인센티브 조항 삽입]\n\n**본 초안은 LLM을 통해 자동 생성되었으며, 최종 검토 및 수정이 필요합니다.**`;
+                showModal('초안 생성 완료', 'AI가 분석 데이터를 기반으로 계약서 초안을 성공적으로 생성했습니다.', true);
+            }
+        }
+
+        // 기존 템플릿 불러오기 시뮬레이션
+        function loadExistingContract(name) {
+            const editor = document.getElementById('contract-editor');
+            if (editor) {
+                editor.value = `[기존 Coloso 표준 계약서 템플릿 (2024년 버전)]\n\n1. 강의명: [미정]\n2. 연사: ${name}\n3. 강의료: [표준 기준 적용]\n4. 제작 기간: 8개월\n\n**템플릿을 기반으로 연사와의 협의 내용을 수동으로 반영해주세요.**`;
+                showModal('템플릿 불러오기 완료', '표준 계약서 템플릿을 불러왔습니다. 내용을 수정하여 사용해주세요.');
+            }
+        }
+
 
         // 전체 앱 렌더링
         function renderApp() {
@@ -745,17 +962,23 @@
 <body class="flex h-screen overflow-hidden">
 
     <!-- Custom Modal (alert 대체) -->
-    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full m-4">
+    <div id="custom-modal" class="hidden fixed inset-0 flex items-center justify-center z-50 transition-opacity duration-300 modal-backdrop">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full m-4" onclick="event.stopPropagation();">
             <div class="p-6">
-                <div class="flex items-center mb-4">
-                    <div id="modal-icon" class="flex-shrink-0 mr-3"></div>
-                    <h3 id="modal-title" class="text-2xl font-bold text-gray-800">알림</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <div id="modal-icon" class="flex-shrink-0 mr-3"></div>
+                        <h3 id="modal-title" class="text-2xl font-bold text-gray-800">알림</h3>
+                    </div>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                 </div>
-                <div id="modal-body" class="text-gray-700 space-y-3">
+                <div id="modal-body" class="text-gray-700 space-y-3 max-h-96 overflow-y-auto pr-2">
                     <!-- Dynamic content here -->
                 </div>
-                <div class="mt-6 text-right">
+                <div id="modal-buttons" class="mt-6 text-right space-x-2">
+                    <!-- Buttons here -->
                     <button onclick="closeModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">확인</button>
                 </div>
             </div>
