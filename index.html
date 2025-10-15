@@ -338,7 +338,7 @@
 
 저는 글로벌 온라인 교육 플랫폼 Coloso의 콘텐츠 기획 담당자 ${plannerName}입니다.
 
-최근 저희 NOVA AI 시스템이 연사님의 [${selectedInstructor.style}] 작업물에 주목했습니다. (AI 스코어: ${selectedInstructor.aiScore}점) 
+최근 저희 NOVA AI 시스템이 연사님의 [${selectedInstructor.style}] 작업물에 주목했습니다.
 연사님의 작품이 [${selectedInstructor.trend}] 트렌드에 부합하며, Coloso와 함께하면 폭발적인 반응을 얻을 수 있을 것이라 확신합니다.
 
 저희는 연사님의 전문 분야인 [${selectedInstructor.style}]에 대한 온라인 강의 기획을 제안드립니다. 자세한 내용은 회신 주시면 논의 드리고 싶습니다.
@@ -376,6 +376,15 @@
             // 회신 버튼은 여기서 생성되어 모달 내부에 배치됨
             if(isReply) {
                  document.getElementById('reply-content').innerHTML += `<button onclick="confirmSendReply(${selectedInstructor.id})" class="mt-3 w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition">회신 전송</button>`;
+            }
+            
+            // 전송 버튼 활성화 (오류 수정)
+            if (!isReply) {
+                const sendButton = document.getElementById('send-template-btn');
+                if (sendButton) {
+                    sendButton.disabled = false;
+                    sendButton.classList.remove('opacity-50', 'pointer-events-none');
+                }
             }
         }
 
@@ -532,11 +541,11 @@
             switch (name) {
                 case "Nekojira":
                     return `
-                    Nekojira 작가는 ${style} 분야에서 독보적인 위치를 차지하고 있으며, 특히 X(구 트위터)를 중심으로 충성도 높은 글로벌 팬덤(${trend})을 형성하고 있습니다. AI 이미지 분석 결과, 작가의 작품은 역동적인 구도와 세밀한 질감 표현에서 최고 수준의 기술 완성도(9.5/10)를 보였습니다. 
+                    Nekojira 작가는 ${style} 분야에서 독보적인 위치를 차지하고 있으며, 특히 X(구 트위터)를 중심으로 충성도 높은 글로벌 팬덤(${trend})을 형성하고 있습니다. AI 이미지 분석 결과, 작가의 작품은 역동적인 구도와 세밀한 질감 표현에서 최고 수준의 기술 완성도를 보였습니다. 
                     \n\n현재 아시아권을 중심으로 폭발적으로 성장하는 서브컬처 시장의 핵심 니즈에 정확히 부합하며, 유사 성공 사례(91%)를 통해 볼 때 콜로소 런칭 시 높은 매출을 기대할 수 있습니다. 즉시 컨택 및 강의 기획을 진행해야 할 최우선 후보입니다.`;
                 case "ArtValkyrie":
                     return `
-                    ArtValkyrie는 ${style}을 주력으로 하며, 주로 인스타그램을 통해 활발히 활동합니다. AI는 그의 작품에서 미학적 완성도(9.3/10)와 함께 현재 ${trend}에서 유행하는 미래지향적 디자인 요소들을 다수 감지했습니다. 
+                    ArtValkyrie는 ${style}을 주력으로 하며, 주로 인스타그램을 통해 활발히 활동합니다. AI는 그의 작품에서 미학적 완성도와 함께 현재 ${trend}에서 유행하는 미래지향적 디자인 요소들을 다수 감지했습니다. 
                     \n\n특히, 네온 톤과 복잡한 구조물의 설계 능력이 뛰어나, 'Hard Surface Modeling' 등 특정 기술에 특화된 강의를 구성한다면 기존 콜로소 강의와 중복 없이 성공적인 판매를 기대할 수 있습니다.`;
                 case "DigitalMonk":
                     return `
@@ -695,6 +704,15 @@
                 </div>
             `;
             container.innerHTML = templateHTML;
+            
+            // 템플릿이 로드된 후 전송 버튼 상태를 최종적으로 확인
+            if (selectedInstructor && document.getElementById('contact-content')) {
+                const sendButton = document.getElementById('send-template-btn');
+                if (sendButton) {
+                    sendButton.disabled = false;
+                    sendButton.classList.remove('opacity-50', 'pointer-events-none');
+                }
+            }
         }
 
         // CRM 카드 렌더링
@@ -920,7 +938,7 @@
             const inst = instructors.find(i => i.name === name);
             const editor = document.getElementById('contract-editor');
             if (editor) {
-                editor.value = `[AI 기반 ${name} 계약서 초안 생성]\n\n1. 강의명: [AI 추천: ${inst.style} 마스터 클래스]\n2. 연사: ${name}\n3. 강의료: [AI 최적 제안: 45,000,000원]\n4. 제작 기간: 6개월\n5. 권리: Coloso 독점 사용\n\n[LLM 상세 조항 추가: AI 분석 결과 (${inst.aiScore}점)에 따라 초기 계약금 5% 추가 인센티브 조항 삽입]\n\n**본 초안은 LLM을 통해 자동 생성되었으며, 최종 검토 및 수정이 필요합니다.**`;
+                editor.value = `[AI 기반 ${name} 계약서 초안 생성]\n\n1. 강의명: [AI 추천: ${inst.style} 마스터 클래스]\n2. 연사: ${name}\n3. 강의료: [AI 최적 제안: 45,000,000원]\n4. 제작 기간: 6개월\n5. 권리: Coloso 독점 사용\n\n[LLM 상세 조항 추가: AI 분석 결과에 따라 초기 계약금 5% 추가 인센티브 조항 삽입]\n\n**본 초안은 LLM을 통해 자동 생성되었으며, 최종 검토 및 수정이 필요합니다.**`;
                 showModal('초안 생성 완료', 'AI가 분석 데이터를 기반으로 계약서 초안을 성공적으로 생성했습니다.', true);
             }
         }
@@ -979,7 +997,7 @@
                 </div>
                 <div id="modal-buttons" class="mt-6 text-right space-x-2">
                     <!-- Buttons here -->
-                    <button onclick="closeModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">확인</button>
+                    <!-- 기본적으로 closeModal() 버튼이 showModal()에서 설정됨 -->
                 </div>
             </div>
         </div>
